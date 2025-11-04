@@ -1,24 +1,29 @@
-# Use OpenJDK 17 as the base image
-FROM openjdk:17-jdk-slim
+# Build stage
+FROM eclipse-temurin:17-jdk-jammy AS builder
 
-# Set the working directory inside the container
-WORKDIR /app
+WORKDIR /build
 
-# Copy the Maven wrapper and pom.xml to leverage Docker layer caching
+# Copy Maven wrapper and pom.xml
 COPY mvnw pom.xml ./
 COPY .mvn .mvn
 
-# Download dependencies (this layer will be cached if pom.xml hasn't changed)
+# Download dependencies with caching
 RUN ./mvnw dependency:go-offline -B
 
-# Copy the source code
+# Copy source code
 COPY src ./src
 
-# Build the application
+# Build application
 RUN ./mvnw clean package -DskipTests
 
-# Expose the port the app runs on
+# Runtime stage (lightweight)
+FROM eclipse-temurin:17-jre-jammy
+
+WORKDIR /app
+
+# Copy only the built JAR from builder stage
+COPY --from=builder /build/target/portfolio-backend-1.0.0.jar app.jar
+
 EXPOSE 8080
 
-# Run the application
-CMD ["java", "-jar", "target/portfolio-backend-1.0.0.jar"]
+CMD ["java", "-jar", "app.jar"]
