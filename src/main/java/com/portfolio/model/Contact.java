@@ -34,4 +34,8 @@ public class Contact {
     private LocalDateTime createdAt = LocalDateTime.now();
 
     private Boolean read = false;
+
+    // ====== NEW FIELDS FOR FILE UPLOAD ======
+    private byte[] file;          // stores the uploaded file bytes
+    private String fileName;      // original file name
 }

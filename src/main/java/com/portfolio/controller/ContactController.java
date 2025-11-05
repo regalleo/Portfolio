@@ -4,11 +4,12 @@ import com.portfolio.model.Contact;
 import com.portfolio.service.ContactService;
 import com.portfolio.service.EmailService;
 import com.portfolio.dto.InterestRequest;
-import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -27,35 +28,43 @@ public class ContactController {
         this.emailService = emailService;
     }
 
+    // ================== Contact Form with File Upload ==================
     @PostMapping
-    public ResponseEntity<Map<String, String>> submitContact(@Valid @RequestBody Contact contact) {
+    public ResponseEntity<Map<String, Object>> submitContact(
+            @RequestPart("contact") Contact contact,
+            @RequestPart(value = "file", required = false) MultipartFile file
+    ) {
         try {
-            // Save contact to database
+            // Handle uploaded file
+            if (file != null && !file.isEmpty()) {
+                contact.setFile(file.getBytes());
+                contact.setFileName(file.getOriginalFilename());
+            }
+
+            // Save to database
             Contact savedContact = contactService.createContact(contact);
 
-            // Send emails asynchronously
-            emailService.sendContactEmailAsync(contact);
+            // Send email asynchronously
+            emailService.sendContactEmailWithAttachment(savedContact);
 
-            Map<String, String> response = new HashMap<>();
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
             response.put("message", "Thank you! Your message has been received.");
-            response.put("status", "success");
-
             return ResponseEntity.ok(response);
 
         } catch (Exception e) {
-            Map<String, String> response = new HashMap<>();
+            e.printStackTrace();
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
             response.put("message", "Failed to send message. Please try again.");
-            response.put("status", "error");
-
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
         }
     }
 
-    // ✅ NEW - Interest Endpoint
+    // ================== Interest Endpoint ==================
     @PostMapping("/interest")
     public ResponseEntity<Map<String, Object>> sendInterestEmail(@RequestBody InterestRequest request) {
         try {
-            // Validate email
             if (request.getEmail() == null || request.getEmail().trim().isEmpty()) {
                 Map<String, Object> response = new HashMap<>();
                 response.put("success", false);
@@ -63,7 +72,6 @@ public class ContactController {
                 return ResponseEntity.badRequest().body(response);
             }
 
-            // Send emails asynchronously
             emailService.sendInterestEmailAsync(request.getEmail());
 
             Map<String, Object> response = new HashMap<>();
@@ -73,6 +81,7 @@ public class ContactController {
             return ResponseEntity.ok(response);
 
         } catch (Exception e) {
+            e.printStackTrace();
             Map<String, Object> response = new HashMap<>();
             response.put("success", false);
             response.put("message", "Failed to process your request. Please try again.");
@@ -80,6 +89,7 @@ public class ContactController {
         }
     }
 
+    // ================== Other Endpoints ==================
     @GetMapping
     public ResponseEntity<List<Contact>> getAllContacts() {
         return ResponseEntity.ok(contactService.getAllContacts());
