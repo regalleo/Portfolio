@@ -12,7 +12,8 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/experience")
-@CrossOrigin(origins = "http://localhost:3002")
+
+@CrossOrigin(origins = "https://raj-shekhar-portfolio.netlify.app")
 public class ExperienceController {
 
     private final ExperienceService experienceService;

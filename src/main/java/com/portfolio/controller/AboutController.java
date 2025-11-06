@@ -12,7 +12,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/about")
-@CrossOrigin(origins = "http://localhost:3002")
+@CrossOrigin(origins = "https://raj-shekhar-portfolio.netlify.app")
 public class AboutController {
 
     private final AboutService aboutService;
