@@ -18,13 +18,14 @@ public class EmailService {
     @Value("${resend.from-email}")
     private String fromEmail;
 
-    @Value("${resend.from-email}")
-    private String adminEmail;
+    private static final String REPLY_TO_EMAIL = "rajsingh170901@gmail.com";
+    private static final String ADMIN_EMAIL = "rajsingh170901@gmail.com";
 
     @PostConstruct
     public void init() {
         System.out.println("📧 Email from: " + fromEmail);
-        System.out.println("📧 Admin email: " + adminEmail);
+        System.out.println("📧 Reply-to: " + REPLY_TO_EMAIL);
+        System.out.println("📧 Admin email: " + ADMIN_EMAIL);
     }
 
     // ================== Send HTML Email ==================
@@ -35,6 +36,7 @@ public class EmailService {
 
             SendEmailRequest request = SendEmailRequest.builder()
                     .from(fromEmail)
+                    .replyTo(REPLY_TO_EMAIL)  // ✅ Replies go to your Gmail
                     .to(to)
                     .subject(subject)
                     .html(htmlContent)
@@ -44,6 +46,7 @@ public class EmailService {
             System.out.println("✅ Email sent to " + to);
         } catch (ResendException e) {
             System.err.println("❌ Failed to send email: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 
@@ -81,12 +84,12 @@ public class EmailService {
                 <p><b>Email:</b> %s</p>
                 <p><b>Subject:</b> %s</p>
                 <p><b>Message:</b> %s</p>
-                <p>💡 Follow up promptly to keep engagement high!</p>
+                <p>💡 Reply directly to this email to respond!</p>
             </body>
             </html>
         """.formatted(contact.getName(), contact.getEmail(), contact.getSubject(), contact.getMessage());
 
-        sendHtmlEmail("rajsingh170901@gmail.com", "📩 New Contact Submission", adminHtml);
+        sendHtmlEmail(ADMIN_EMAIL, "📩 New Contact from " + contact.getName(), adminHtml);
 
         System.out.println("✅ Admin email sent");
     }
@@ -100,7 +103,7 @@ public class EmailService {
             <html>
             <body style="font-family: Arial, sans-serif; text-align:center; background-color:#f0f8ff; padding:20px;">
                 <h2 style="color:#1a73e8;">👍 Hi %s!</h2>
-                <p>Thank you for liking my portfolio website! 💻✨</p>
+                <p>Thank you for showing interest in my portfolio! 💻✨</p>
                 <p>You can reach out anytime for queries or collaboration. 📧</p>
                 <a href="mailto:rajsingh170901@gmail.com"
                    style="display:inline-block; padding:12px 25px; margin:15px 0; color:white; background-color:#1a73e8; text-decoration:none; border-radius:8px; font-weight:bold;">
@@ -113,17 +116,17 @@ public class EmailService {
 
         String adminHtml = """
             <html>
-            <body style="font-family: Arial, sans-serif; padding:15px;">
-                <h3 style="color:#1a73e8;">📩 New Interest in Portfolio</h3>
-                <p>A visitor showed interest in your portfolio website. 🌟</p>
+            <body style="font-family: Arial, sans-serif; padding:15px; background-color:#f0f8ff;">
+                <h3 style="color:#1a73e8;">💡 New Interest in Portfolio</h3>
+                <p>A visitor showed interest in your portfolio website! 🌟</p>
                 <p><b>Visitor Email:</b> %s</p>
-                <p>💡 Follow up promptly to keep engagement high!</p>
+                <p>💡 Reach out to build connections!</p>
             </body>
             </html>
         """.formatted(userEmail);
 
-        sendHtmlEmail(userEmail, "🎉 Thanks for Liking My Portfolio! 🌟", userHtml);
-        sendHtmlEmail("rajsingh170901@gmail.com", "📩 New Interest in Portfolio", adminHtml);
+        sendHtmlEmail(userEmail, "🎉 Thanks for Your Interest! 🌟", userHtml);
+        sendHtmlEmail(ADMIN_EMAIL, "💡 New Interest from " + name, adminHtml);
     }
 
     // ================== Helper: Extract Name ==================
