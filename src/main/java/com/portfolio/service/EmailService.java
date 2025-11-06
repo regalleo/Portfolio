@@ -1,28 +1,31 @@
 package com.portfolio.service;
 
 import com.portfolio.model.Contact;
-import com.sendgrid.*;
-import com.sendgrid.helpers.mail.Mail;
-import com.sendgrid.helpers.mail.objects.*;
 import jakarta.annotation.PostConstruct;
+import jakarta.mail.MessagingException;
+import jakarta.mail.internet.MimeMessage;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.core.io.InputStreamSource;
+import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
-
-import java.io.IOException;
-import java.util.Base64;
 
 @Service
 public class EmailService {
 
-    @Value("${sendgrid.api-key}")
-    private String sendgridApiKey;
+    private final JavaMailSender mailSender;
+    private final String fromEmail;
+    private final String adminEmail;
 
-    @Value("${sendgrid.from-email}")
-    private String fromEmail;
-
-    @Value("${sendgrid.from-email}") // Admin email same as from email
-    private String adminEmail;
+    public EmailService(JavaMailSender mailSender,
+                        @Value("${app.email.from}") String fromEmail,
+                        @Value("${app.email.receive}") String adminEmail) {
+        this.mailSender = mailSender;
+        this.fromEmail = fromEmail;
+        this.adminEmail = adminEmail;
+    }
 
     @PostConstruct
     public void init() {
@@ -30,24 +33,19 @@ public class EmailService {
         System.out.println("📧 Admin email: " + adminEmail);
     }
 
-    // ================== Send HTML Email using SendGrid ==================
+    // ================== Send HTML Email ==================
     @Async
     public void sendHtmlEmail(String to, String subject, String htmlContent) {
         try {
-            Email from = new Email(fromEmail);
-            Email toEmail = new Email(to);
-            Content content = new Content("text/html", htmlContent);
-            Mail mail = new Mail(from, subject, toEmail, content);
-
-            SendGrid sg = new SendGrid(sendgridApiKey);
-            Request request = new Request();
-            request.setMethod(Method.POST);
-            request.setEndpoint("mail/send");
-            request.setBody(mail.build());
-
-            Response response = sg.api(request);
-            System.out.println("✅ Email sent to " + to + " | Status: " + response.getStatusCode());
-        } catch (IOException e) {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+            helper.setFrom(fromEmail);
+            helper.setTo(to);
+            helper.setSubject(subject);
+            helper.setText(htmlContent, true);
+            mailSender.send(message);
+            System.out.println("✅ Email sent to " + to);
+        } catch (MessagingException e) {
             System.err.println("❌ Failed to send email: " + e.getMessage());
         }
     }
@@ -79,9 +77,11 @@ public class EmailService {
 
         // ------------------- Admin Email with Attachment -------------------
         try {
-            Email from = new Email(fromEmail);
-            Email to = new Email(adminEmail);
-            String subject = "📩 New Contact Submission";
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+            helper.setFrom(fromEmail);
+            helper.setTo(adminEmail);
+            helper.setSubject("📩 New Contact Submission");
 
             String adminHtml = """
                 <html>
@@ -96,29 +96,17 @@ public class EmailService {
                 </html>
             """.formatted(contact.getName(), contact.getEmail(), contact.getSubject(), contact.getMessage());
 
-            Content content = new Content("text/html", adminHtml);
-            Mail mail = new Mail(from, subject, to, content);
+            helper.setText(adminHtml, true);
 
-            // Add attachment if present
+            // Attach file if uploaded
             if (contact.getFile() != null && contact.getFileName() != null) {
-                Attachments attachments = new Attachments();
-                String base64File = Base64.getEncoder().encodeToString(contact.getFile());
-                attachments.setContent(base64File);
-                attachments.setType("application/octet-stream");
-                attachments.setFilename(contact.getFileName());
-                attachments.setDisposition("attachment");
-                mail.addAttachments(attachments);
+                InputStreamSource attachment = new ByteArrayResource(contact.getFile());
+                helper.addAttachment(contact.getFileName(), attachment);
             }
 
-            SendGrid sg = new SendGrid(sendgridApiKey);
-            Request request = new Request();
-            request.setMethod(Method.POST);
-            request.setEndpoint("mail/send");
-            request.setBody(mail.build());
-
-            Response response = sg.api(request);
-            System.out.println("✅ Admin email sent with attachment (if any) | Status: " + response.getStatusCode());
-        } catch (IOException e) {
+            mailSender.send(message);
+            System.out.println("✅ Admin email sent with attachment (if any)");
+        } catch (MessagingException e) {
             System.err.println("❌ Failed to send admin email: " + e.getMessage());
         }
     }
