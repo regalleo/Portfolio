@@ -1,31 +1,25 @@
 package com.portfolio.service;
 
 import com.portfolio.model.Contact;
+import com.resend.Resend;
+import com.resend.core.exception.ResendException;
+import com.resend.services.emails.model.SendEmailRequest;
 import jakarta.annotation.PostConstruct;
-import jakarta.mail.MessagingException;
-import jakarta.mail.internet.MimeMessage;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.io.ByteArrayResource;
-import org.springframework.core.io.InputStreamSource;
-import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 @Service
 public class EmailService {
 
-    private final JavaMailSender mailSender;
-    private final String fromEmail;
-    private final String adminEmail;
+    @Value("${resend.api-key}")
+    private String resendApiKey;
 
-    public EmailService(JavaMailSender mailSender,
-                        @Value("${app.email.from}") String fromEmail,
-                        @Value("${app.email.receive}") String adminEmail) {
-        this.mailSender = mailSender;
-        this.fromEmail = fromEmail;
-        this.adminEmail = adminEmail;
-    }
+    @Value("${resend.from-email}")
+    private String fromEmail;
+
+    @Value("${resend.from-email}")
+    private String adminEmail;
 
     @PostConstruct
     public void init() {
@@ -37,15 +31,18 @@ public class EmailService {
     @Async
     public void sendHtmlEmail(String to, String subject, String htmlContent) {
         try {
-            MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-            helper.setFrom(fromEmail);
-            helper.setTo(to);
-            helper.setSubject(subject);
-            helper.setText(htmlContent, true);
-            mailSender.send(message);
+            Resend resend = new Resend(resendApiKey);
+
+            SendEmailRequest request = SendEmailRequest.builder()
+                    .from(fromEmail)
+                    .to(to)
+                    .subject(subject)
+                    .html(htmlContent)
+                    .build();
+
+            resend.emails().send(request);
             System.out.println("✅ Email sent to " + to);
-        } catch (MessagingException e) {
+        } catch (ResendException e) {
             System.err.println("❌ Failed to send email: " + e.getMessage());
         }
     }
@@ -75,40 +72,23 @@ public class EmailService {
 
         sendHtmlEmail(contact.getEmail(), "📬 Message Received!", userHtml);
 
-        // ------------------- Admin Email with Attachment -------------------
-        try {
-            MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-            helper.setFrom(fromEmail);
-            helper.setTo(adminEmail);
-            helper.setSubject("📩 New Contact Submission");
+        // ------------------- Admin Email -------------------
+        String adminHtml = """
+            <html>
+            <body style="font-family: Arial, sans-serif; padding:20px; background-color:#fffbea;">
+                <h3 style="color:#1a73e8;">📩 New Contact Message</h3>
+                <p><b>Name:</b> %s</p>
+                <p><b>Email:</b> %s</p>
+                <p><b>Subject:</b> %s</p>
+                <p><b>Message:</b> %s</p>
+                <p>💡 Follow up promptly to keep engagement high!</p>
+            </body>
+            </html>
+        """.formatted(contact.getName(), contact.getEmail(), contact.getSubject(), contact.getMessage());
 
-            String adminHtml = """
-                <html>
-                <body style="font-family: Arial, sans-serif; padding:20px; background-color:#fffbea;">
-                    <h3 style="color:#1a73e8;">📩 New Contact Message</h3>
-                    <p><b>Name:</b> %s</p>
-                    <p><b>Email:</b> %s</p>
-                    <p><b>Subject:</b> %s</p>
-                    <p><b>Message:</b> %s</p>
-                    <p>💡 Follow up promptly to keep engagement high!</p>
-                </body>
-                </html>
-            """.formatted(contact.getName(), contact.getEmail(), contact.getSubject(), contact.getMessage());
+        sendHtmlEmail("rajsingh170901@gmail.com", "📩 New Contact Submission", adminHtml);
 
-            helper.setText(adminHtml, true);
-
-            // Attach file if uploaded
-            if (contact.getFile() != null && contact.getFileName() != null) {
-                InputStreamSource attachment = new ByteArrayResource(contact.getFile());
-                helper.addAttachment(contact.getFileName(), attachment);
-            }
-
-            mailSender.send(message);
-            System.out.println("✅ Admin email sent with attachment (if any)");
-        } catch (MessagingException e) {
-            System.err.println("❌ Failed to send admin email: " + e.getMessage());
-        }
+        System.out.println("✅ Admin email sent");
     }
 
     // ================== Interest Emails ==================
@@ -143,7 +123,7 @@ public class EmailService {
         """.formatted(userEmail);
 
         sendHtmlEmail(userEmail, "🎉 Thanks for Liking My Portfolio! 🌟", userHtml);
-        sendHtmlEmail(adminEmail, "📩 New Interest in Portfolio", adminHtml);
+        sendHtmlEmail("rajsingh170901@gmail.com", "📩 New Interest in Portfolio", adminHtml);
     }
 
     // ================== Helper: Extract Name ==================
