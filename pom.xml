@@ -31,6 +31,12 @@
 			<artifactId>spring-boot-starter-web</artifactId>
 		</dependency>
 
+		<dependency>
+			<groupId>com.sendgrid</groupId>
+			<artifactId>sendgrid-java</artifactId>
+			<version>4.10.1</version>
+		</dependency>
+
 		<!-- Spring Data MongoDB -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
