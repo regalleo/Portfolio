@@ -1,38 +1,28 @@
+version: '3.8'
+
 services:
+  portfolio-backend:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+      - MONGODB_URI=${MONGODB_URI}
+      - REDIS_URL=${REDIS_URL}
+    depends_on:
+      - mongodb
+      - redis
+
   mongodb:
     image: mongo:7.0
-    container_name: portfolio-mongodb
     ports:
       - "27017:27017"
     environment:
-      MONGO_INITDB_ROOT_USERNAME: root
-      MONGO_INITDB_ROOT_PASSWORD: password
+      MONGO_INITDB_DATABASE: portfolio_db
     volumes:
-      - mongo-data:/data/db
-      - /Users/rajshekharsingh/Downloads/portfolio-backend/init.js:/docker-entrypoint-initdb.d/init.js:ro
-    networks:
-      - portfolio-network
-    healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
+      - ./init.js:/docker-entrypoint-initdb.d/init.js:ro
 
   redis:
-    image: redis:7-alpine
-    container_name: portfolio-redis
+    image: redis:7.2-alpine
     ports:
       - "6379:6379"
-    networks:
-      - portfolio-network
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
-volumes:
-  mongo-data:
-
-networks:
-  portfolio-network:
